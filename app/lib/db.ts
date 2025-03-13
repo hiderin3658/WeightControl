@@ -1,4 +1,4 @@
-import { kv } from '@vercel/kv';
+import redis from './redis';
 
 // ユーザープレフィックス - ユーザーIDを含む一意のキー作成のため
 const USER_PREFIX = 'user:';
@@ -53,17 +53,17 @@ export interface UserSettings {
 export const userOperations = {
   // ユーザーを取得する
   async getUser(userId: string): Promise<User | null> {
-    return await kv.get<User>(`${USER_PREFIX}${userId}`);
+    return await redis.get<User>(`${USER_PREFIX}${userId}`);
   },
 
   // ユーザーを作成/更新する
   async setUser(user: User): Promise<void> {
-    await kv.set(`${USER_PREFIX}${user.id}`, user);
+    await redis.set(`${USER_PREFIX}${user.id}`, user);
   },
 
   // ユーザーを削除する
   async deleteUser(userId: string): Promise<void> {
-    await kv.del(`${USER_PREFIX}${userId}`);
+    await redis.del(`${USER_PREFIX}${userId}`);
   }
 };
 
@@ -81,19 +81,19 @@ export const weightOperations = {
 
   // 体重記録を作成する
   async createWeightRecord(record: WeightRecord): Promise<void> {
-    await kv.set(this.generateWeightKey(record.userId, record.id), record);
+    await redis.set(this.generateWeightKey(record.userId, record.id), record);
   },
 
   // 体重記録を取得する
   async getWeightRecord(userId: string, recordId: string): Promise<WeightRecord | null> {
-    return await kv.get<WeightRecord>(this.generateWeightKey(userId, recordId));
+    return await redis.get<WeightRecord>(this.generateWeightKey(userId, recordId));
   },
 
   // ユーザーの全記録を取得する
   async getUserWeightRecords(userId: string): Promise<WeightRecord[]> {
-    // KVではスキャン操作を使用して特定のパターンにマッチするキーを検索
+    // Redisではスキャン操作を使用して特定のパターンにマッチするキーを検索
     // このキーをもとにデータを取得
-    const keys = await kv.keys(this.generateWeightPattern(userId));
+    const keys = await redis.keys(this.generateWeightPattern(userId));
     
     if (keys.length === 0) {
       return [];
@@ -101,7 +101,7 @@ export const weightOperations = {
     
     // 複数のキーからデータを一括取得
     const records = await Promise.all(
-      keys.map(key => kv.get<WeightRecord>(key))
+      keys.map(key => redis.get<WeightRecord>(key))
     );
     
     // nullでない値をフィルタリングして日付順にソート
@@ -112,7 +112,7 @@ export const weightOperations = {
 
   // 体重記録を更新する
   async updateWeightRecord(record: WeightRecord): Promise<void> {
-    await kv.set(this.generateWeightKey(record.userId, record.id), {
+    await redis.set(this.generateWeightKey(record.userId, record.id), {
       ...record,
       updatedAt: new Date().toISOString()
     });
@@ -120,7 +120,7 @@ export const weightOperations = {
 
   // 体重記録を削除する
   async deleteWeightRecord(userId: string, recordId: string): Promise<void> {
-    await kv.del(this.generateWeightKey(userId, recordId));
+    await redis.del(this.generateWeightKey(userId, recordId));
   }
 };
 
@@ -138,24 +138,24 @@ export const goalOperations = {
 
   // 目標を作成する
   async createGoal(goal: Goal): Promise<void> {
-    await kv.set(this.generateGoalKey(goal.userId, goal.id), goal);
+    await redis.set(this.generateGoalKey(goal.userId, goal.id), goal);
   },
 
   // 目標を取得する
   async getGoal(userId: string, goalId: string): Promise<Goal | null> {
-    return await kv.get<Goal>(this.generateGoalKey(userId, goalId));
+    return await redis.get<Goal>(this.generateGoalKey(userId, goalId));
   },
 
   // ユーザーの全目標を取得する
   async getUserGoals(userId: string): Promise<Goal[]> {
-    const keys = await kv.keys(this.generateGoalPattern(userId));
+    const keys = await redis.keys(this.generateGoalPattern(userId));
     
     if (keys.length === 0) {
       return [];
     }
     
     const goals = await Promise.all(
-      keys.map(key => kv.get<Goal>(key))
+      keys.map(key => redis.get<Goal>(key))
     );
     
     return goals
@@ -165,7 +165,7 @@ export const goalOperations = {
 
   // 目標を更新する
   async updateGoal(goal: Goal): Promise<void> {
-    await kv.set(this.generateGoalKey(goal.userId, goal.id), {
+    await redis.set(this.generateGoalKey(goal.userId, goal.id), {
       ...goal,
       updatedAt: new Date().toISOString()
     });
@@ -173,7 +173,7 @@ export const goalOperations = {
 
   // 目標を削除する
   async deleteGoal(userId: string, goalId: string): Promise<void> {
-    await kv.del(this.generateGoalKey(userId, goalId));
+    await redis.del(this.generateGoalKey(userId, goalId));
   }
 };
 
@@ -186,12 +186,12 @@ export const settingsOperations = {
 
   // 設定を取得する
   async getUserSettings(userId: string): Promise<UserSettings | null> {
-    return await kv.get<UserSettings>(this.generateSettingsKey(userId));
+    return await redis.get<UserSettings>(this.generateSettingsKey(userId));
   },
 
   // 設定を作成/更新する
   async setUserSettings(settings: UserSettings): Promise<void> {
-    await kv.set(this.generateSettingsKey(settings.userId), {
+    await redis.set(this.generateSettingsKey(settings.userId), {
       ...settings,
       updatedAt: new Date().toISOString()
     });

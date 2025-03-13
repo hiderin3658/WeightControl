@@ -1,4 +1,4 @@
-import { kv } from '@vercel/kv';
+import redis from './redis';
 import { mockDb } from './mock-db';
 import {
   User,
@@ -12,15 +12,15 @@ import {
 } from './db';
 
 // 環境変数が設定されているかチェック
-const isKvAvailable = typeof process !== 'undefined' && 
-  process.env.KV_URL && 
+const isRedisAvailable = typeof process !== 'undefined' && 
+  process.env.KV_REST_API_URL && 
   process.env.KV_REST_API_TOKEN;
 
 // ユーザー関連の操作
 export const userDb = {
   // ユーザーを取得する
   async getUser(userId: string): Promise<User | null> {
-    if (isKvAvailable) {
+    if (isRedisAvailable) {
       return await userOperations.getUser(userId);
     } else {
       console.log('Using mock data for getUser');
@@ -39,7 +39,7 @@ export const userDb = {
 
   // ユーザーを作成/更新する
   async setUser(user: User): Promise<void> {
-    if (isKvAvailable) {
+    if (isRedisAvailable) {
       await userOperations.setUser(user);
     } else {
       console.log('Using mock data for setUser');
@@ -49,7 +49,7 @@ export const userDb = {
 
   // ユーザーを削除する
   async deleteUser(userId: string): Promise<void> {
-    if (isKvAvailable) {
+    if (isRedisAvailable) {
       await userOperations.deleteUser(userId);
     } else {
       console.log('Using mock data for deleteUser');
@@ -62,7 +62,7 @@ export const userDb = {
 export const weightDb = {
   // 体重記録を作成する
   async createWeightRecord(record: WeightRecord): Promise<void> {
-    if (isKvAvailable) {
+    if (isRedisAvailable) {
       await weightOperations.createWeightRecord(record);
     } else {
       console.log('Using mock data for createWeightRecord');
@@ -72,7 +72,7 @@ export const weightDb = {
 
   // 体重記録を取得する
   async getWeightRecord(userId: string, recordId: string): Promise<WeightRecord | null> {
-    if (isKvAvailable) {
+    if (isRedisAvailable) {
       return await weightOperations.getWeightRecord(userId, recordId);
     } else {
       console.log('Using mock data for getWeightRecord');
@@ -82,7 +82,7 @@ export const weightDb = {
 
   // ユーザーの全記録を取得する
   async getUserWeightRecords(userId: string): Promise<WeightRecord[]> {
-    if (isKvAvailable) {
+    if (isRedisAvailable) {
       return await weightOperations.getUserWeightRecords(userId);
     } else {
       console.log('Using mock data for getUserWeightRecords');
@@ -92,7 +92,7 @@ export const weightDb = {
 
   // 体重記録を更新する
   async updateWeightRecord(record: WeightRecord): Promise<void> {
-    if (isKvAvailable) {
+    if (isRedisAvailable) {
       await weightOperations.updateWeightRecord(record);
     } else {
       console.log('Using mock data for updateWeightRecord');
@@ -106,7 +106,7 @@ export const weightDb = {
 
   // 体重記録を削除する
   async deleteWeightRecord(userId: string, recordId: string): Promise<void> {
-    if (isKvAvailable) {
+    if (isRedisAvailable) {
       await weightOperations.deleteWeightRecord(userId, recordId);
     } else {
       console.log('Using mock data for deleteWeightRecord');
@@ -119,7 +119,7 @@ export const weightDb = {
 export const goalDb = {
   // 目標を作成する
   async createGoal(goal: Goal): Promise<void> {
-    if (isKvAvailable) {
+    if (isRedisAvailable) {
       await goalOperations.createGoal(goal);
     } else {
       console.log('Using mock data for createGoal');
@@ -129,7 +129,7 @@ export const goalDb = {
 
   // 目標を取得する
   async getGoal(userId: string, goalId: string): Promise<Goal | null> {
-    if (isKvAvailable) {
+    if (isRedisAvailable) {
       return await goalOperations.getGoal(userId, goalId);
     } else {
       console.log('Using mock data for getGoal');
@@ -139,7 +139,7 @@ export const goalDb = {
 
   // ユーザーの全目標を取得する
   async getUserGoals(userId: string): Promise<Goal[]> {
-    if (isKvAvailable) {
+    if (isRedisAvailable) {
       return await goalOperations.getUserGoals(userId);
     } else {
       console.log('Using mock data for getUserGoals');
@@ -149,7 +149,7 @@ export const goalDb = {
 
   // 目標を更新する
   async updateGoal(goal: Goal): Promise<void> {
-    if (isKvAvailable) {
+    if (isRedisAvailable) {
       await goalOperations.updateGoal(goal);
     } else {
       console.log('Using mock data for updateGoal');
@@ -163,7 +163,7 @@ export const goalDb = {
 
   // 目標を削除する
   async deleteGoal(userId: string, goalId: string): Promise<void> {
-    if (isKvAvailable) {
+    if (isRedisAvailable) {
       await goalOperations.deleteGoal(userId, goalId);
     } else {
       console.log('Using mock data for deleteGoal');
@@ -176,7 +176,7 @@ export const goalDb = {
 export const settingsDb = {
   // 設定を取得する
   async getUserSettings(userId: string): Promise<UserSettings | null> {
-    if (isKvAvailable) {
+    if (isRedisAvailable) {
       return await settingsOperations.getUserSettings(userId);
     } else {
       console.log('Using mock data for getUserSettings');
@@ -186,7 +186,7 @@ export const settingsDb = {
 
   // 設定を作成/更新する
   async setUserSettings(settings: UserSettings): Promise<void> {
-    if (isKvAvailable) {
+    if (isRedisAvailable) {
       await settingsOperations.setUserSettings(settings);
     } else {
       console.log('Using mock data for setUserSettings');
