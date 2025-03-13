@@ -1,0 +1,11 @@
+/* ラベンダーグラデーション背景 */
+.lavender-gradient-bg {
+  background: linear-gradient(to bottom right, #F3E5F5, #D1C4E9);
+}
+
+/* カードスタイル */
+.card-lavender {
+  background-color: rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(243, 229, 245, 0.5);
+}
