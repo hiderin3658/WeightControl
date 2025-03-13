@@ -7,23 +7,14 @@ import { useRouter } from 'next/navigation';
 import { FaSave, FaTrash, FaArrowRight } from 'react-icons/fa';
 import WaveAnimation from '../components/WaveAnimation';
 import { v4 as uuidv4 } from 'uuid';
-
-// 目標設定の型定義
-type Goal = {
-  id: string;
-  userId: string;
-  targetWeight: number;
-  startDate: string;
-  targetDate: string;
-  createdAt: string;
-  updatedAt: string;
-};
+import { goalDb, weightDb } from '../lib/db-wrapper';
+import { Goal, WeightRecord } from '../lib/db';
 
 export default function GoalsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [goals, setGoals] = useState<Goal[]>([]);
-  const [currentWeight, setCurrentWeight] = useState(67.5); // サンプル値
+  const [currentWeight, setCurrentWeight] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   
@@ -31,17 +22,6 @@ export default function GoalsPage() {
   const [targetWeight, setTargetWeight] = useState('');
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [targetDate, setTargetDate] = useState('');
-  
-  // サンプルデータ（後で実際のAPIに置き換え）
-  const sampleGoal: Goal = {
-    id: "1",
-    userId: "user1",
-    targetWeight: 65.0,
-    startDate: "2025-03-01",
-    targetDate: "2025-05-31",
-    createdAt: "2025-03-01T08:00:00Z",
-    updatedAt: "2025-03-01T08:00:00Z"
-  };
 
   useEffect(() => {
     // 認証状態をチェック
@@ -50,15 +30,28 @@ export default function GoalsPage() {
       return;
     }
 
-    // データ取得のシミュレーション
-    // 実際の実装では、APIから目標を取得します
+    // データ取得
     const fetchData = async () => {
       try {
         setLoading(true);
-        // APIからデータを取得する代わりに、サンプルデータを使用
-        setGoals([sampleGoal]);
+        
+        if (session?.user?.email) {
+          // 目標データを取得
+          const userGoals = await goalDb.getUserGoals(session.user.email);
+          setGoals(userGoals);
+          
+          // 最新の体重記録を取得して現在の体重として使用
+          const weightRecords = await weightDb.getUserWeightRecords(session.user.email);
+          if (weightRecords.length > 0) {
+            // 日付でソートして最新の記録を取得
+            const sortedRecords = [...weightRecords].sort((a, b) => 
+              new Date(b.date).getTime() - new Date(a.date).getTime()
+            );
+            setCurrentWeight(sortedRecords[0].weight);
+          }
+        }
       } catch (err) {
-        setError('目標の取得に失敗しました');
+        setError('データの取得に失敗しました');
         console.error(err);
       } finally {
         setLoading(false);
@@ -68,13 +61,13 @@ export default function GoalsPage() {
     if (status === 'authenticated') {
       fetchData();
     }
-  }, [status, router]);
+  }, [status, router, session]);
 
   // 目標設定の関数
   const handleSetGoal = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!session?.user) return;
+    if (!session?.user?.email) return;
     
     // バリデーション
     const targetWeightValue = parseFloat(targetWeight);
@@ -99,8 +92,8 @@ export default function GoalsPage() {
     try {
       // 新しい目標を作成
       const newGoal: Goal = {
-        id: uuidv4(), // 実際の実装では、サーバーサイドでIDを生成します
-        userId: session.user.id || 'user1',
+        id: uuidv4(),
+        userId: session.user.email,
         targetWeight: targetWeightValue,
         startDate,
         targetDate,
@@ -108,8 +101,11 @@ export default function GoalsPage() {
         updatedAt: new Date().toISOString()
       };
       
-      // 実際の実装では、APIを呼び出して保存します
-      setGoals([newGoal]);
+      // DBに保存
+      await goalDb.createGoal(newGoal);
+      
+      // 目標リストを更新
+      setGoals([...goals, newGoal]);
       
       // フォームをリセット
       setTargetWeight('');
@@ -128,8 +124,13 @@ export default function GoalsPage() {
     if (!confirm('この目標を削除してもよろしいですか？')) return;
     
     try {
-      // 実際の実装では、APIを呼び出して削除します
-      setGoals(goals.filter(g => g.id !== id));
+      if (session?.user?.email) {
+        // DBから削除
+        await goalDb.deleteGoal(session.user.email, id);
+        
+        // 目標リストを更新
+        setGoals(goals.filter(g => g.id !== id));
+      }
     } catch (err) {
       setError('目標の削除に失敗しました');
       console.error(err);
@@ -147,6 +148,8 @@ export default function GoalsPage() {
   
   // 目標達成までの進捗率を計算
   const calculateProgress = (goal: Goal) => {
+    if (currentWeight === null) return 0;
+    
     const startWeight = currentWeight;
     const targetWeight = goal.targetWeight;
     
@@ -162,6 +165,8 @@ export default function GoalsPage() {
   
   // 1日あたりの必要減量を計算
   const calculateDailyWeightLoss = (goal: Goal) => {
+    if (currentWeight === null) return 0;
+    
     const daysRemaining = calculateDaysRemaining(goal.targetDate);
     if (daysRemaining === 0) return 0;
     
@@ -207,8 +212,21 @@ export default function GoalsPage() {
           </motion.div>
         )}
         
-        {/* 現在の目標 */}
-        {goals.length > 0 && (
+        {loading ? (
+          <div className="text-center py-8">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+            <p className="mt-2 text-gray-600">データを読み込み中...</p>
+          </div>
+        ) : goals.length === 0 ? (
+          <motion.div
+            variants={item}
+            className="backdrop-blur-lg bg-blue-50/50 rounded-2xl p-6 shadow-lg mb-8 text-center"
+          >
+            <h2 className="text-xl font-semibold text-gray-800 mb-4">新しい目標を設定</h2>
+            <p className="text-gray-600 mb-4">まだ目標が設定されていません。新しい目標を設定しましょう！</p>
+            <p className="text-gray-600">上のフォームから目標体重と期間を設定して、健康的な体重管理を始めましょう。</p>
+          </motion.div>
+        ) : (
           <motion.div
             variants={item}
             className="backdrop-blur-lg bg-blue-50/50 rounded-2xl p-6 shadow-lg mb-8"
@@ -216,9 +234,9 @@ export default function GoalsPage() {
             <h2 className="text-xl font-semibold text-gray-800 mb-4">現在の目標</h2>
             
             {goals.map((goal) => {
-              const progress = calculateProgress(goal);
+              const progress = currentWeight !== null ? calculateProgress(goal) : 0;
               const daysRemaining = calculateDaysRemaining(goal.targetDate);
-              const dailyWeightLoss = calculateDailyWeightLoss(goal);
+              const dailyWeightLoss = currentWeight !== null ? calculateDailyWeightLoss(goal) : 0;
               
               return (
                 <div key={goal.id} className="space-y-4">
@@ -234,7 +252,7 @@ export default function GoalsPage() {
                     <div>
                       <p className="text-gray-600">残り</p>
                       <p className="text-3xl font-bold text-purple-600">
-                        {Math.max(0, currentWeight - goal.targetWeight).toFixed(1)} kg
+                        {currentWeight !== null ? Math.max(0, currentWeight - goal.targetWeight).toFixed(1) : '0'} kg
                       </p>
                     </div>
                   </div>

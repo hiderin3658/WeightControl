@@ -7,22 +7,8 @@ import { useRouter } from 'next/navigation';
 import { FaPlus, FaEdit, FaTrash } from 'react-icons/fa';
 import WaveAnimation from '../components/WaveAnimation';
 import { v4 as uuidv4 } from 'uuid';
-
-// 体重記録の型定義
-type WeightRecord = {
-  id: string;
-  userId: string;
-  date: string;
-  weight: number;
-  note?: string;
-  exercise?: {
-    type: string;
-    duration: number;
-    calories?: number;
-  };
-  createdAt: string;
-  updatedAt: string;
-};
+import { weightDb } from '../lib/db-wrapper';
+import { WeightRecord } from '../lib/db';
 
 export default function RecordPage() {
   const { data: session, status } = useSession();
@@ -54,46 +40,6 @@ export default function RecordPage() {
     "通勤・通学時の活動",
     "その他"
   ];
-  
-  // サンプルデータ（後で実際のAPIに置き換え）
-  const sampleData: WeightRecord[] = [
-    {
-      id: "1",
-      userId: "user1",
-      date: "2025-03-12",
-      weight: 67.5,
-      note: "散歩を30分した",
-      exercise: {
-        type: "散歩",
-        duration: 30,
-        calories: 150
-      },
-      createdAt: "2025-03-12T08:00:00Z",
-      updatedAt: "2025-03-12T08:00:00Z"
-    },
-    {
-      id: "2",
-      userId: "user1",
-      date: "2025-03-11",
-      weight: 67.8,
-      createdAt: "2025-03-11T08:00:00Z",
-      updatedAt: "2025-03-11T08:00:00Z"
-    },
-    {
-      id: "3",
-      userId: "user1",
-      date: "2025-03-10",
-      weight: 68.2,
-      note: "昨日は飲み会だった",
-      exercise: {
-        type: "筋トレ",
-        duration: 60,
-        calories: 300
-      },
-      createdAt: "2025-03-10T08:00:00Z",
-      updatedAt: "2025-03-10T08:00:00Z"
-    }
-  ];
 
   useEffect(() => {
     // 認証状態をチェック
@@ -102,13 +48,22 @@ export default function RecordPage() {
       return;
     }
 
-    // データ取得のシミュレーション
-    // 実際の実装では、APIから記録を取得します
+    // データ取得
     const fetchData = async () => {
       try {
         setLoading(true);
-        // APIからデータを取得する代わりに、サンプルデータを使用
-        setRecords(sampleData);
+        
+        if (session?.user?.email) {
+          // DBから体重記録を取得
+          const userRecords = await weightDb.getUserWeightRecords(session.user.email);
+          
+          // 日付でソート（新しい順）
+          const sortedRecords = [...userRecords].sort((a, b) => 
+            new Date(b.date).getTime() - new Date(a.date).getTime()
+          );
+          
+          setRecords(sortedRecords);
+        }
       } catch (err) {
         setError('記録の取得に失敗しました');
         console.error(err);
@@ -120,13 +75,13 @@ export default function RecordPage() {
     if (status === 'authenticated') {
       fetchData();
     }
-  }, [status, router]);
+  }, [status, router, session]);
 
   // 記録追加の関数
   const handleAddRecord = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!session?.user) return;
+    if (!session?.user?.email) return;
     
     // 体重のバリデーション
     const weightValue = parseFloat(weight);
@@ -139,20 +94,23 @@ export default function RecordPage() {
       // 編集モードの場合
       if (isEditing && editingRecord) {
         // 更新処理
-        const updatedRecord = {
+        const updatedRecord: WeightRecord = {
           ...editingRecord,
           date,
           weight: weightValue,
           note: note || undefined,
           exercise: exerciseType ? {
             type: exerciseType,
-            duration: parseInt(exerciseDuration),
+            duration: parseInt(exerciseDuration) || 0,
             calories: exerciseCalories ? parseInt(exerciseCalories) : undefined
           } : undefined,
           updatedAt: new Date().toISOString()
         };
         
-        // 実際の実装では、APIを呼び出して更新します
+        // DBに保存
+        await weightDb.updateWeightRecord(updatedRecord);
+        
+        // 記録リストを更新
         setRecords(records.map(r => 
           r.id === updatedRecord.id ? updatedRecord : r
         ));
@@ -163,21 +121,24 @@ export default function RecordPage() {
       } else {
         // 新規追加処理
         const newRecord: WeightRecord = {
-          id: uuidv4(), // 実際の実装では、サーバーサイドでIDを生成します
-          userId: session.user.id || 'user1',
+          id: uuidv4(),
+          userId: session.user.email,
           date,
           weight: weightValue,
           note: note || undefined,
           exercise: exerciseType ? {
             type: exerciseType,
-            duration: parseInt(exerciseDuration),
+            duration: parseInt(exerciseDuration) || 0,
             calories: exerciseCalories ? parseInt(exerciseCalories) : undefined
           } : undefined,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         };
         
-        // 実際の実装では、APIを呼び出して追加します
+        // DBに保存
+        await weightDb.createWeightRecord(newRecord);
+        
+        // 記録リストを更新（新しい記録を先頭に追加）
         setRecords([newRecord, ...records]);
       }
       
@@ -200,29 +161,20 @@ export default function RecordPage() {
   const handleEditRecord = (record: WeightRecord) => {
     setIsEditing(true);
     setEditingRecord(record);
+    
+    // フォームに値をセット
     setDate(record.date);
     setWeight(record.weight.toString());
     setNote(record.note || '');
     if (record.exercise) {
       setExerciseType(record.exercise.type);
       setExerciseDuration(record.exercise.duration.toString());
-      setExerciseCalories(record.exercise.calories ? record.exercise.calories.toString() : '');
+      setExerciseCalories(record.exercise.calories?.toString() || '');
+    } else {
+      setExerciseType('');
+      setExerciseDuration('');
+      setExerciseCalories('');
     }
-    
-    // フォームにスクロール
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-  
-  // 編集キャンセルの関数
-  const cancelEditing = () => {
-    setIsEditing(false);
-    setEditingRecord(null);
-    setDate(new Date().toISOString().split('T')[0]);
-    setWeight('');
-    setNote('');
-    setExerciseType('');
-    setExerciseDuration('');
-    setExerciseCalories('');
   };
   
   // 記録削除の関数
@@ -230,12 +182,27 @@ export default function RecordPage() {
     if (!confirm('この記録を削除してもよろしいですか？')) return;
     
     try {
-      // 実際の実装では、APIを呼び出して削除します
-      setRecords(records.filter(r => r.id !== id));
+      if (session?.user?.email) {
+        // DBから削除
+        await weightDb.deleteWeightRecord(session.user.email, id);
+        
+        // 記録リストを更新
+        setRecords(records.filter(r => r.id !== id));
+      }
     } catch (err) {
       setError('記録の削除に失敗しました');
       console.error(err);
     }
+  };
+  
+  // 体重の変化を計算（前回からの増減）
+  const calculateWeightChange = (currentIndex: number): number | null => {
+    if (currentIndex >= records.length - 1) return null;
+    
+    const currentWeight = records[currentIndex].weight;
+    const previousWeight = records[currentIndex + 1].weight;
+    
+    return currentWeight - previousWeight;
   };
   
   // アニメーション設定
@@ -382,7 +349,16 @@ export default function RecordPage() {
               {isEditing && (
                 <button
                   type="button"
-                  onClick={cancelEditing}
+                  onClick={() => {
+                    setIsEditing(false);
+                    setEditingRecord(null);
+                    setDate(new Date().toISOString().split('T')[0]);
+                    setWeight('');
+                    setNote('');
+                    setExerciseType('');
+                    setExerciseDuration('');
+                    setExerciseCalories('');
+                  }}
                   className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors"
                 >
                   キャンセル
@@ -403,46 +379,63 @@ export default function RecordPage() {
         {/* 記録リスト */}
         <motion.div
           variants={item}
-          className="backdrop-blur-lg bg-blue-50/50 rounded-2xl p-6 shadow-lg"
+          className="backdrop-blur-lg bg-blue-50/50 rounded-2xl p-6 shadow-lg mb-8"
         >
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">
-            過去の記録
-          </h2>
+          <h2 className="text-xl font-semibold text-gray-800 mb-4">体重記録一覧</h2>
           
           {loading ? (
             <div className="text-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-purple-500 mx-auto"></div>
-              <p className="mt-2 text-gray-600">読み込み中...</p>
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+              <p className="mt-2 text-gray-600">データを読み込み中...</p>
             </div>
           ) : records.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-gray-600">記録がありません</p>
+            <div className="text-center">
+              <p className="text-gray-600 mb-4">まだ体重記録がありません。最初の記録を追加しましょう！</p>
+              <p className="text-gray-600 mb-6">上のフォームから体重を記録して、健康管理を始めましょう。</p>
+              <div className="flex justify-center">
+                <a
+                  href="/goals"
+                  className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                >
+                  目標を設定する
+                </a>
+              </div>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-blue-50/50">
+                <thead className="bg-blue-50/80">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">日付</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">体重 (kg)</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">メモ</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">運動</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">日付</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">体重</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">変化</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">メモ</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">運動</th>
+                    <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
                   </tr>
                 </thead>
                 <tbody className="bg-blue-50/50 divide-y divide-gray-200">
-                  {records.map((record) => (
+                  {records.map((record, index) => (
                     <tr key={record.id} className="hover:bg-blue-50/80 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{record.date}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-purple-600">{record.weight} kg</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        {calculateWeightChange(index) !== null ? (
+                          <span className={`font-medium ${calculateWeightChange(index)! < 0 ? 'text-green-600' : calculateWeightChange(index)! > 0 ? 'text-red-600' : 'text-gray-600'}`}>
+                            {calculateWeightChange(index)! < 0 ? '' : '+'}
+                            {calculateWeightChange(index)!.toFixed(1)} kg
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{record.note || '-'}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {record.exercise ? (
-                          <div>
-                            <p>{record.exercise.type}</p>
-                            <p>時間: {record.exercise.duration} 分</p>
-                            {record.exercise.calories && <p>消費カロリー: {record.exercise.calories} kcal</p>}
-                          </div>
+                          <span>
+                            {record.exercise.type} ({record.exercise.duration}分
+                            {record.exercise.calories ? `, ${record.exercise.calories}kcal` : ''})
+                          </span>
                         ) : (
                           '-'
                         )}
@@ -450,7 +443,7 @@ export default function RecordPage() {
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <button
                           onClick={() => handleEditRecord(record)}
-                          className="text-indigo-600 hover:text-indigo-900 mr-3"
+                          className="text-blue-600 hover:text-blue-900 mr-4"
                         >
                           <FaEdit />
                         </button>

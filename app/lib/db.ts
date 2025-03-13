@@ -25,6 +25,11 @@ export interface WeightRecord {
   date: string;
   weight: number;
   note?: string;
+  exercise?: {
+    type: string;
+    duration: number;
+    calories?: number;
+  };
   createdAt: string;
   updatedAt: string;
 }

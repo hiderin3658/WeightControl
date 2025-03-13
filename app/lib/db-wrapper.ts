@@ -11,10 +11,10 @@ import {
   settingsOperations
 } from './db';
 
-// 環境変数が設定されているかチェック
+// 環境変数が設定されているかチェック（サーバーサイドとクライアントサイドの両方に対応）
 const isRedisAvailable = typeof process !== 'undefined' && 
-  process.env.KV_REST_API_URL && 
-  process.env.KV_REST_API_TOKEN;
+  (process.env.KV_REST_API_URL || process.env.NEXT_PUBLIC_KV_REST_API_URL) && 
+  (process.env.KV_REST_API_TOKEN || process.env.NEXT_PUBLIC_KV_REST_API_TOKEN);
 
 // ユーザー関連の操作
 export const userDb = {
@@ -23,7 +23,6 @@ export const userDb = {
     if (isRedisAvailable) {
       return await userOperations.getUser(userId);
     } else {
-      console.log('Using mock data for getUser');
       // モックデータには現在ユーザーが実装されていないため、簡易的なユーザーを返す
       if (userId === 'user1') {
         return {
@@ -42,8 +41,7 @@ export const userDb = {
     if (isRedisAvailable) {
       await userOperations.setUser(user);
     } else {
-      console.log('Using mock data for setUser');
-      console.log('Saved user:', user);
+      // モックデータには保存しない
     }
   },
 
@@ -52,8 +50,7 @@ export const userDb = {
     if (isRedisAvailable) {
       await userOperations.deleteUser(userId);
     } else {
-      console.log('Using mock data for deleteUser');
-      console.log('Deleted user:', userId);
+      // モックデータには実装しない
     }
   }
 };
@@ -65,7 +62,6 @@ export const weightDb = {
     if (isRedisAvailable) {
       await weightOperations.createWeightRecord(record);
     } else {
-      console.log('Using mock data for createWeightRecord');
       await mockDb.saveWeightRecord(record);
     }
   },
@@ -75,7 +71,6 @@ export const weightDb = {
     if (isRedisAvailable) {
       return await weightOperations.getWeightRecord(userId, recordId);
     } else {
-      console.log('Using mock data for getWeightRecord');
       return await mockDb.getWeightRecord(userId, recordId);
     }
   },
@@ -85,7 +80,6 @@ export const weightDb = {
     if (isRedisAvailable) {
       return await weightOperations.getUserWeightRecords(userId);
     } else {
-      console.log('Using mock data for getUserWeightRecords');
       return await mockDb.getWeightRecords(userId);
     }
   },
@@ -95,7 +89,6 @@ export const weightDb = {
     if (isRedisAvailable) {
       await weightOperations.updateWeightRecord(record);
     } else {
-      console.log('Using mock data for updateWeightRecord');
       const updatedRecord = {
         ...record,
         updatedAt: new Date().toISOString()
@@ -109,7 +102,6 @@ export const weightDb = {
     if (isRedisAvailable) {
       await weightOperations.deleteWeightRecord(userId, recordId);
     } else {
-      console.log('Using mock data for deleteWeightRecord');
       await mockDb.deleteWeightRecord(userId, recordId);
     }
   }
@@ -122,7 +114,6 @@ export const goalDb = {
     if (isRedisAvailable) {
       await goalOperations.createGoal(goal);
     } else {
-      console.log('Using mock data for createGoal');
       await mockDb.saveGoal(goal);
     }
   },
@@ -132,7 +123,6 @@ export const goalDb = {
     if (isRedisAvailable) {
       return await goalOperations.getGoal(userId, goalId);
     } else {
-      console.log('Using mock data for getGoal');
       return await mockDb.getGoal(userId, goalId);
     }
   },
@@ -142,7 +132,6 @@ export const goalDb = {
     if (isRedisAvailable) {
       return await goalOperations.getUserGoals(userId);
     } else {
-      console.log('Using mock data for getUserGoals');
       return await mockDb.getGoals(userId);
     }
   },
@@ -152,7 +141,6 @@ export const goalDb = {
     if (isRedisAvailable) {
       await goalOperations.updateGoal(goal);
     } else {
-      console.log('Using mock data for updateGoal');
       const updatedGoal = {
         ...goal,
         updatedAt: new Date().toISOString()
@@ -166,7 +154,6 @@ export const goalDb = {
     if (isRedisAvailable) {
       await goalOperations.deleteGoal(userId, goalId);
     } else {
-      console.log('Using mock data for deleteGoal');
       await mockDb.deleteGoal(userId, goalId);
     }
   }
@@ -179,7 +166,6 @@ export const settingsDb = {
     if (isRedisAvailable) {
       return await settingsOperations.getUserSettings(userId);
     } else {
-      console.log('Using mock data for getUserSettings');
       return await mockDb.getSettings(userId);
     }
   },
@@ -189,7 +175,6 @@ export const settingsDb = {
     if (isRedisAvailable) {
       await settingsOperations.setUserSettings(settings);
     } else {
-      console.log('Using mock data for setUserSettings');
       const updatedSettings = {
         ...settings,
         updatedAt: new Date().toISOString()
