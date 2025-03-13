@@ -234,7 +234,7 @@ export default function GoalsPage() {
                     <div>
                       <p className="text-gray-600">残り</p>
                       <p className="text-3xl font-bold text-purple-600">
-                        {Math.max(0, (currentWeight - goal.targetWeight).toFixed(1))} kg
+                        {Math.max(0, currentWeight - goal.targetWeight).toFixed(1)} kg
                       </p>
                     </div>
                   </div>
