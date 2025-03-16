@@ -4,7 +4,6 @@ import dynamic from 'next/dynamic';
 import { motion } from 'framer-motion';
 import WaveAnimation from '../components/WaveAnimation';
 import { useEffect, useState } from 'react';
-import { weightDb, goalDb } from '../lib/db-wrapper';
 import { WeightRecord, Goal } from '../lib/db';
 import { useSession } from 'next-auth/react';
 import { ChartData } from 'chart.js';
@@ -43,7 +42,6 @@ const chartOptions = {
 
 export default function Dashboard() {
   const { data: session } = useSession();
-  const userId = session?.user?.email || 'guest';
   
   const [weightRecords, setWeightRecords] = useState<WeightRecord[]>([]);
   const [goal, setGoal] = useState<Goal | null>(null);
@@ -67,14 +65,24 @@ export default function Dashboard() {
       try {
         setIsLoading(true);
         
-        // 体重記録を取得
-        const records = await weightDb.getUserWeightRecords(userId);
+        // APIを使用して体重記録を取得
+        const recordsResponse = await fetch('/api/weight-records');
+        if (!recordsResponse.ok) {
+          throw new Error(`体重記録の取得に失敗しました: ${recordsResponse.status}`);
+        }
+        const records = await recordsResponse.json();
+        console.log('APIから取得した体重記録:', records);
         setWeightRecords(records);
         
-        // 目標を取得 - 最初の目標を使用
-        const userGoals = await goalDb.getUserGoals(userId);
-        if (userGoals.length > 0) {
-          setGoal(userGoals[0]);
+        // APIを使用して目標を取得
+        const goalsResponse = await fetch('/api/goals');
+        if (!goalsResponse.ok) {
+          throw new Error(`目標の取得に失敗しました: ${goalsResponse.status}`);
+        }
+        const goals = await goalsResponse.json();
+        console.log('APIから取得した目標:', goals);
+        if (goals.length > 0) {
+          setGoal(goals[0]);
         }
         
         // グラフ用データを準備
@@ -110,10 +118,10 @@ export default function Dashboard() {
       }
     };
     
-    if (userId) {
+    if (session) {
       fetchData();
     }
-  }, [userId]);
+  }, [session]);
 
   // 現在の体重（最新の記録）
   const currentWeight = weightRecords.length > 0 
