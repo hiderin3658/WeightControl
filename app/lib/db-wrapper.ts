@@ -26,6 +26,12 @@ console.error(`[DB-WRAPPER] 環境変数チェック:`, {
   NEXT_PUBLIC_KV_REST_API_TOKEN: !!process.env.NEXT_PUBLIC_KV_REST_API_TOKEN
 });
 
+// 詳細な接続情報
+console.error(`[DB-WRAPPER] Redis接続情報:`, {
+  URL: process.env.KV_REST_API_URL || process.env.NEXT_PUBLIC_KV_REST_API_URL,
+  TOKEN_EXISTS: !!(process.env.KV_REST_API_TOKEN || process.env.NEXT_PUBLIC_KV_REST_API_TOKEN)
+});
+
 // ユーザー関連の操作
 export const userDb = {
   // ユーザーを取得する
@@ -72,6 +78,8 @@ export const weightDb = {
     try {
       console.error(`[DB] 体重記録の保存を試みます: ${record.id}`);
       if (isRedisAvailable) {
+        const key = weightOperations.generateWeightKey(record.userId, record.id);
+        console.error(`[DB-DETAIL] 体重記録保存キー: ${key}`);
         await weightOperations.createWeightRecord(record);
         console.error(`[DB] 体重記録の保存に成功しました: ${record.id}`);
       } else {
@@ -91,6 +99,8 @@ export const weightDb = {
       console.error(`[DB] 体重記録の取得を試みます: ${userId}/${recordId}`);
       let record;
       if (isRedisAvailable) {
+        const key = weightOperations.generateWeightKey(userId, recordId);
+        console.error(`[DB-DETAIL] 体重記録取得キー: ${key}`);
         record = await weightOperations.getWeightRecord(userId, recordId);
       } else {
         console.error(`[MockDB] モック体重記録の取得を試みます: ${userId}/${recordId}`);
@@ -110,7 +120,19 @@ export const weightDb = {
       console.error(`[DB] ユーザーの全体重記録の取得を試みます: ${userId}`);
       let records;
       if (isRedisAvailable) {
+        const pattern = weightOperations.generateWeightPattern(userId);
+        console.error(`[DB-DETAIL] 体重記録検索パターン: ${pattern}`);
+        
+        // キーの一覧を取得してログに出力
+        const keys = await redis.keys(pattern);
+        console.error(`[DB-DETAIL] 一致した体重記録キー: ${keys.length}件`, keys);
+        
         records = await weightOperations.getUserWeightRecords(userId);
+        
+        // 取得したデータのIDリストをログに出力
+        if (records.length > 0) {
+          console.error(`[DB-DETAIL] 取得した体重記録のID: ${records.map(r => r.id).join(', ')}`);
+        }
       } else {
         console.error(`[MockDB] モックユーザーの全体重記録の取得を試みます: ${userId}`);
         records = await mockDb.getWeightRecords(userId);
@@ -171,6 +193,8 @@ export const goalDb = {
     try {
       console.error(`[DB] 目標の保存を試みます: ${goal.id}`);
       if (isRedisAvailable) {
+        const key = goalOperations.generateGoalKey(goal.userId, goal.id);
+        console.error(`[DB-DETAIL] 目標保存キー: ${key}`);
         await goalOperations.createGoal(goal);
         console.error(`[DB] 目標の保存に成功しました: ${goal.id}`);
       } else {
@@ -190,6 +214,8 @@ export const goalDb = {
       console.error(`[DB] 目標の取得を試みます: ${userId}/${goalId}`);
       let goal;
       if (isRedisAvailable) {
+        const key = goalOperations.generateGoalKey(userId, goalId);
+        console.error(`[DB-DETAIL] 目標取得キー: ${key}`);
         goal = await goalOperations.getGoal(userId, goalId);
       } else {
         console.error(`[MockDB] モック目標の取得を試みます: ${userId}/${goalId}`);
@@ -209,7 +235,19 @@ export const goalDb = {
       console.error(`[DB] ユーザーの全目標の取得を試みます: ${userId}`);
       let goals;
       if (isRedisAvailable) {
+        const pattern = goalOperations.generateGoalPattern(userId);
+        console.error(`[DB-DETAIL] 目標検索パターン: ${pattern}`);
+        
+        // キーの一覧を取得してログに出力
+        const keys = await redis.keys(pattern);
+        console.error(`[DB-DETAIL] 一致した目標キー: ${keys.length}件`, keys);
+        
         goals = await goalOperations.getUserGoals(userId);
+        
+        // 取得したデータのIDリストをログに出力
+        if (goals.length > 0) {
+          console.error(`[DB-DETAIL] 取得した目標のID: ${goals.map(g => g.id).join(', ')}`);
+        }
       } else {
         console.error(`[MockDB] モックユーザーの全目標の取得を試みます: ${userId}`);
         goals = await mockDb.getGoals(userId);
