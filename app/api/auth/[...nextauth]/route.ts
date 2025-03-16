@@ -1,11 +1,12 @@
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
+import { AuthOptions } from "next-auth";
 
 // 環境変数のデフォルト値（開発・デモ用）
 const googleClientId = process.env.GOOGLE_CLIENT_ID || 'dummy-client-id';
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET || 'dummy-client-secret';
 
-const handler = NextAuth({
+export const authOptions: AuthOptions = {
   providers: [
     GoogleProvider({
       clientId: googleClientId,
@@ -33,6 +34,8 @@ const handler = NextAuth({
       return token;
     },
   },
-});
+};
+
+const handler = NextAuth(authOptions);
 
 export { handler as GET, handler as POST };

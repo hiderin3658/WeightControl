@@ -7,47 +7,39 @@ import WaveAnimation from '@/app/components/WaveAnimation';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { useState } from 'react';
-import { weightDb } from '../../lib/db-wrapper';
 
 export default function SignIn() {
   const router = useRouter();
   const [testResult, setTestResult] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleGoogleSignIn = () => {
     signIn('google', { callbackUrl: '/dashboard' });
   };
 
   const handleTest = async () => {
-    const testRecord = {
-      id: 'test1',
-      userId: 'user1',
-      date: new Date().toISOString(),
-      weight: 65.5,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
+    setIsLoading(true);
     try {
-      // テストデータを保存
-      await weightDb.createWeightRecord(testRecord);
+      // APIルートを使用してテストを実行
+      const response = await fetch('/api/test-db', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
 
-      // 保存されたデータを取得
-      const records = await weightDb.getUserWeightRecords('user1');
-
-      if (records.length > 0 && records[0].id === 'test1') {
-        setTestResult('OK: データが正しく保存されました。');
+      const data = await response.json();
+      
+      if (response.ok) {
+        setTestResult(data.message);
       } else {
-        setTestResult('NG: データが保存されていません。');
+        setTestResult(data.message || 'エラーが発生しました。');
       }
     } catch (error) {
-      console.error('データ保存エラー:', error);
-      if (error instanceof Error) {
-        console.error('エラーメッセージ:', error.message);
-        setTestResult(`NG: エラーが発生しました - ${error.message}`);
-      } else {
-        console.error('不明なエラーが発生しました。');
-        setTestResult('NG: 不明なエラーが発生しました。');
-      }
+      console.error('API呼び出しエラー:', error);
+      setTestResult('NG: APIの呼び出しに失敗しました。');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -71,7 +63,22 @@ export default function SignIn() {
           <FaGoogle className="text-red-500 mr-3" />
           Googleでサインイン
         </button>
-        <p className="mt-4 text-gray-600">{testResult}</p>
+        
+        <div className="mt-4 flex flex-col items-center">
+          <button
+            onClick={handleTest}
+            disabled={isLoading}
+            className="mt-2 text-sm bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors disabled:bg-blue-300"
+          >
+            {isLoading ? 'テスト中...' : 'データベーステスト実行'}
+          </button>
+          {testResult && (
+            <p className={`mt-2 text-sm ${testResult.startsWith('OK') ? 'text-green-600' : 'text-red-600'}`}>
+              {testResult}
+            </p>
+          )}
+        </div>
+        
         <div className="mt-8 text-center text-sm text-gray-500">
           <p>サインインすることで、当サービスの</p>
           <p className="mt-1">

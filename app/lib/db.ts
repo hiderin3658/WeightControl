@@ -39,6 +39,7 @@ export interface Goal {
   id: string;
   userId: string;
   targetWeight: number;
+  startWeight?: number; // 開始時の体重（オプション）
   startDate: string;
   targetDate: string;
   createdAt: string;
