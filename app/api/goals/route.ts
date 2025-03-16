@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { goalDb } from '@/app/lib/db-wrapper';
 import { Goal } from '@/app/lib/db';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@/app/lib/auth-options';
 
 // 目標を取得するAPI
 export async function GET(request: NextRequest) {
