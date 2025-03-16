@@ -14,6 +14,40 @@ export default function SignIn() {
     signIn('google', { callbackUrl: '/dashboard' });
   };
 
+  const handleTest = async () => {
+    const testRecord = {
+      id: 'test1',
+      userId: 'user1',
+      date: new Date().toISOString(),
+      weight: 65.5,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    try {
+      // テストデータを保存
+      // await weightDb.createWeightRecord(testRecord);
+
+      // 保存されたデータを取得
+      // const records = await weightDb.getUserWeightRecords('user1');
+
+      // if (records.length > 0 && records[0].id === 'test1') {
+      //   setTestResult('OK: データが正しく保存されました。');
+      // } else {
+      //   setTestResult('NG: データが保存されていません。');
+      // }
+    } catch (error) {
+      console.error('データ保存エラー:', error);
+      if (error instanceof Error) {
+        console.error('エラーメッセージ:', error.message);
+        // setTestResult(`NG: エラーが発生しました - ${error.message}`);
+      } else {
+        console.error('不明なエラーが発生しました。');
+        // setTestResult('NG: 不明なエラーが発生しました。');
+      }
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex items-center justify-center">
       <WaveAnimation />
