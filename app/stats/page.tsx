@@ -48,15 +48,21 @@ export default function StatsPage() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const records = await weightDb.getUserWeightRecords(userId);
-        setWeightRecords(records.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
+        // APIを使用して体重記録を取得
+        const response = await fetch('/api/weight-records');
+        if (!response.ok) {
+          throw new Error(`体重記録の取得に失敗しました: ${response.status}`);
+        }
+        const records = await response.json();
+        console.log('APIから取得した体重記録:', records);
+        setWeightRecords(records.sort((a: WeightRecord, b: WeightRecord) => new Date(a.date).getTime() - new Date(b.date).getTime()));
         
         // 統計情報の計算
         if (records.length > 0) {
-          const weights = records.map(r => r.weight);
+          const weights = records.map((r: WeightRecord) => r.weight);
           const minWeight = Math.min(...weights);
           const maxWeight = Math.max(...weights);
-          const averageWeight = weights.reduce((a, b) => a + b, 0) / weights.length;
+          const averageWeight = weights.reduce((a: number, b: number) => a + b, 0) / weights.length;
           
           // 減量の計算（最初の記録と最新の記録を比較）
           const firstRecord = records[0];
@@ -65,7 +71,7 @@ export default function StatsPage() {
           const weightLossPercentage = (weightLoss / firstRecord.weight) * 100;
           
           // 記録した日数
-          const uniqueDates = new Set(records.map(r => r.date.split('T')[0]));
+          const uniqueDates = new Set(records.map((r: WeightRecord) => r.date.split('T')[0]));
           const daysLogged = uniqueDates.size;
           
           // 連続記録日数（簡易版）
@@ -89,8 +95,10 @@ export default function StatsPage() {
       }
     };
     
-    fetchData();
-  }, [userId]);
+    if (session) {
+      fetchData();
+    }
+  }, [session]);
   
   // アニメーション設定
   const container = {
